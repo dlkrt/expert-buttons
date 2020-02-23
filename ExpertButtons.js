@@ -1,189 +1,213 @@
 // ==UserScript==
 // @name         ExpertsButtons
 // @namespace    http://tampermonkey.net/
-// @version      0.9
-// @license MIT
-// @author       dlkrt
+// @version      1.0
+// @license      MIT
+// @author       dlkrt, danyadev
 // @match        https://vk.com/*
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
-function ExpertButtons() { // конструктор
-    this.access_token = '..............'; // токен, полученный из официального приложения ВК
+function ExpertButtons() {
+  // Сюда вставьте токен из приложения VK для Android
+  const access_token = 'СЮДА';
 
-    function insertStyles() { // иниацилизация стилей
-        var style = document.createElement("style");
-        style.innerHTML = `
-.arrow-container { /* для дива со стрелочками и счетчиком */
-    display: flex;
-    flex: 0.3;
-    justify-content: space-between;
-    align-items: center;
-    margin-left: auto;
-    padding-right: 10px;
-}
-.arrow {
-    border-right: 10px solid transparent;
-    border-left: 10px solid transparent;
-    border-bottom: 10px solid #D6D8DB;
-    position: relative;
-}
-.arrow-counter { /* счетчик голосов */
-    line-height: 14px;
-    color: #909399;
-    font-weight: bold;
-}
+  function vkapi(method, params = {}) {
+    return new Promise((resolve, reject) => {
+      const paramsList = [`access_token=${access_token}`, 'v=5.118', 'lang=ru'];
 
-.arrow::before{
-content: '';
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-bottom: 10px solid #fff;
-    position: absolute;
-    top: 60%;
-    margin-top: 3px;
-    margin-left: -10px;
-}
-.arrow-up { /* стрелка вверх */
-}
-.arrow-down { /* вниз */
-    transform:rotate(180deg);
-}
-.arrow-up:hover {
-    border-bottom: 10px solid #3390FF;
-    transition: 0.5s;
-}
-.arrow-down:hover {
-border-bottom: 10px solid #3390FF;
-transition: 0.5s;
-}
-.arrow[selected] {
-border-bottom: 10px solid #3390FF;
-}
-`;
-        document.head.appendChild(style);
-    }
+      for(const key in params) {
+        paramsList.push(`${key}=${encodeURIComponent(params[key])}`);
+      }
 
-    function searchPosts(el) { // ищем посты
-        var postsArray = el.querySelectorAll('.post,.wl_post'); // .wl_post для модальных постов
-        if (!postsArray) return;
-        Array.from(postsArray).map(function (post) {
-            if (post.checked) return; // .checked для проверенных постов
-            checkPost(post);  // отправляем на проверку наличия рейтинга
-            post.checked = 1; // отмечаем пост проверенным
-        });
-    }
-
-
-    function makeVote(e) { // голосуем... отправляем апи голос пользователя
-        var voteValue = 0; // что выбрал пользователь
-        if (e.currentTarget.classList.contains('arrow-up')) voteValue = 1;
-        if (e.currentTarget.classList.contains('arrow-down')) voteValue = -1;
-
-        var request = new XMLHttpRequest(); // отправка инфы о голосе к апи. сервер возвращает response: 1 (хз когда 0)
-        request.open("POST", "https://api.vk.com/method/newsfeed.setPostVote", true);
-        request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        request.responseType = 'json';
-        request.onreadystatechange = function () {
-            if (request.readyState !== 4) return;
-            if (request.status === 200) {
-                if (request.response.response === 0) { // если апи все-таки вернул response: 0
-                    alert('oh.. какая-то ошибка, не удалось поставить оценку');
-                } else {
-                    var counter = e.target.parentElement.querySelector('.arrow-counter'); // ищем счетчик
-                    if (Number(counter.getAttribute('rated')) === voteValue) { // если голос ранее === голос сейчас. отменяем сделанный ранее выбор
-                        e.target.removeAttribute('selected'); // selected - атрибут помеченной стрелки (была ранее выбрана). убираем
-                        counter.innerText = Number(counter.innerText) - Number(counter.getAttribute('rated')); // из счетчика вычитаем то, что ранее выбрал юзер
-                        counter.setAttribute('rated', "0"); // в rated храним выбор юзера. одно из [-1,0,1]
-                    } else {
-                        e.target.parentElement.querySelectorAll('.arrow').forEach(function (item) {
-                            item.removeAttribute('selected') // удаляем атрибуты выбранных стрелок
-                        });
-                        counter.innerText = Number(counter.innerText) - Number(counter.getAttribute('rated')) + voteValue; // поправляем значение счетчика
-                        e.target.setAttribute('selected', 'true'); // устанавливаем выбор стрелке
-                        counter.setAttribute('rated', voteValue); // в rated храним выбор юзера. одно из [-1,0,1]
-                    }
-                }
-            }
-        };
-        request.onerror = function () {
-            console.log('error during request api')
-        };
-        var post_link = e.target.getAttribute('data-post'); // в data-post храним значение owner_postId
-        request.send('v=5.118&https=1&new_vote=' + voteValue + '&post_id=' + post_link.split('_')[1] + '&owner_id=' + post_link.split('_')[0] + '&lang=ru&access_token=' + this.access_token);
-    }
-
-    function draw(link, info) { // рисуем стрелочки и счетчик
-        var container = document.createElement('div'); // контейнер с стрелочками и счетчиком
-        container.classList.add('arrow-container');
-        var arrowUp = document.createElement("a"); // стрелка вверх. можно для семантики сделать button
-        var arrowDown = document.createElement("a"); // стрелка вниз
-        var counter = document.createElement("div"); // счетчик голосов
-        counter.classList.add('arrow-counter');
-        counter.setAttribute('rated', info.rated); // заносим в атрибут голос пользователя. одно из [-1,0,1]
-        counter.innerText = info.value; // число голосов за пост
-        arrowUp.classList.add("arrow");
-        arrowDown.classList.add("arrow");
-        arrowUp.classList.add("arrow-up");
-        var post_link = link.querySelector('.post_link').href.replace(/.+\//, "").replace('wall', ''); // post_link хранит ссылку на пост, убираем из нее мусор, оставляем ownerid_postid
-        arrowDown.setAttribute('data-post', post_link);
-        arrowUp.setAttribute('data-post', post_link);
-        arrowDown.classList.add("arrow-down");
-        if (info.rated) { // если юзер голосовол ранее, назначаем одной из стрелок атрибут selected
-            if (info.rated === -1) arrowDown.setAttribute('selected', 'true');
-            else arrowUp.setAttribute('selected', 'true');
+      const req = new XMLHttpRequest();
+      
+      req.open('POST', `https://api.vk.com/method/${method}`, true);
+      req.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      req.responseType = 'json';
+      req.send(paramsList.join('&'));
+      req.onerror = reject;
+      req.onreadystatechange = function() {
+        if(req.readyState !== 4) return;
+        
+        if(req.status === 200) {
+          resolve(req.response.response);
         }
+      }
+    });
+  }
 
-        arrowUp.addEventListener('mousedown', makeVote.bind(this)); // вешаем эвент нажатия стрелки вверх
-        arrowDown.addEventListener('mousedown', makeVote.bind(this)); // стрелки вниз
+  function insertStyles() {
+    const style = document.createElement('style');
+    
+    style.innerHTML = `
+      .arrow-container { /* для дива со стрелочками и счетчиком */
+        display: flex;
+        flex: 0.3;
+        justify-content: space-between;
+        align-items: center;
+        margin-left: auto;
+        padding-right: 10px;
+      }
+      
+      .arrow {
+        border-right: 10px solid transparent;
+        border-left: 10px solid transparent;
+        border-bottom: 10px solid #D6D8DB;
+        position: relative;
+      }
+      
+      .arrow-counter { /* счетчик голосов */
+        line-height: 14px;
+        color: #909399;
+        font-weight: bold;
+      }
+      
+      .arrow::before {
+        content: '';
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 10px solid #fff;
+        position: absolute;
+        top: 60%;
+        margin-top: 3px;
+        margin-left: -10px;
+      }
+      
+      .arrow-up {} /* стрелка вверх */
+      
+      .arrow-down { /* стрелка вниз */
+        transform: rotate(180deg);
+      }
+      .arrow-up:hover {
+        border-bottom: 10px solid #3390FF;
+        transition: .5s;
+      }
+      
+      .arrow-down:hover {
+        border-bottom: 10px solid #3390FF;
+        transition: .5s;
+      }
+      
+      .arrow[selected] {
+        border-bottom: 10px solid #3390FF;
+      }
+    `;
+    
+    document.head.appendChild(style);
+  }
 
-        container.appendChild(arrowUp);
-        container.appendChild(counter);
-        container.appendChild(arrowDown);
-        link.querySelector('.like_views').before(container); // вставляем перед счетчиком просмотров
-        return info;
+  function searchPosts(el) {
+    // .post - пост в ленте, .wl_post - пост в модальном окне
+    // Оба типа постов имеют атрибут data-post-id
+    const postsArray = el.querySelectorAll('.post, .wl_post');
+    if(!postsArray) return;
+    
+    postsArray.forEach((post) => {
+      if(post.checked) return;
+      else post.checked = true;
+      
+      checkPost(post);
+    });
+  }
+
+  async function checkPost(post) {
+    const { items: [postInfo] } = await vkapi('wall.getById', {
+      posts: post.dataset.postId,
+      extended: 1
+    });
+    
+    if(postInfo.rating) {
+      renderButtons(post, postInfo.rating);
     }
+  }
 
-    function checkPost(link) { // чекаем один пост, есть ли у него стрелки, получаем инфу о рейтинге из апи
-        var post_link = link.querySelector('.post_link').href.replace(/.+\//, "").replace('wall', ''); // извлекаем из .post_link ссылку на пост, убираем мусор, осталяем ownerid_postid
-        var request = new XMLHttpRequest(); // готовим запрос на получение инфы о посте от апи
-        request.open("POST", "https://api.vk.com/method/wall.getById", true);
-        request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        request.onreadystatechange = function () {
-            if (request.readyState !== 4) return;
-            if (request.status === 200) {
-                var postInfo = request.response.response.items[0];
-                if (!postInfo.rating) return; // если у поста рейтинга нет, скипаем
-                draw(link, postInfo.rating); // рисуем стрелки и счетчик для поста
-                return postInfo.rating;
-            }
-        };
-        request.responseType = 'json';
-        request.onerror = function () {
-            console.log('error during request api')
-        };
-        request.send('v=5.118&https=1&lang=ru&posts=' + post_link + '&extended=1&access_token=' + this.access_token);
-    }
+  function renderButtons(post, rating) {
+    const post_id = post.dataset.postId;
+    
+    const arrowUp = document.createElement('a');
+    arrowUp.classList.add('arrow');
+    arrowUp.classList.add('arrow-up');
+    arrowUp.setAttribute('data-post', post_id);
+    arrowUp.addEventListener('mousedown', makeVote);
+    
+    const arrowDown = document.createElement('a');
+    arrowDown.classList.add('arrow');
+    arrowDown.classList.add('arrow-down');
+    arrowDown.setAttribute('data-post', post_id);
+    arrowDown.addEventListener('mousedown', makeVote);
+    
+    const counter = document.createElement('div');
+    counter.classList.add('arrow-counter');
+    counter.setAttribute('rated', rating.rated);
+    counter.innerText = rating.value;
 
-    // создаем обработчик мутаций элемента
-    var observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) { // перебираем обновленя в элементах
-            if (mutation.target.nodeType !== 1) return; // если элемент не блок, то выходим
-            searchPosts(mutation.target); // отдаем элемент на проверку ссылок
-        });
+    if(rating.rated == 1) arrowUp.setAttribute('selected', true);
+    if(rating.rated == -1) arrowDown.setAttribute('selected', true);
+
+    const container = document.createElement('div');
+    container.classList.add('arrow-container');
+    container.appendChild(arrowUp);
+    container.appendChild(counter);
+    container.appendChild(arrowDown);
+    
+    post.querySelector('.like_views').before(container);
+  }
+
+  async function makeVote({ target }) {
+    const [owner_id, post_id] = target.getAttribute('data-post');
+    let new_vote = 0;
+    
+    if(target.classList.contains('arrow-up')) new_vote = 1;
+    if(target.classList.contains('arrow-down')) new_vote = -1;
+
+    await vkapi('newsfeed.setPostVote', {
+      owner_id,
+      post_id,
+      new_vote
     });
 
-    window.addEventListener("load", function () { // обработчик на загрузку страницы
-        insertStyles(); // вставляем стили
-        searchPosts(document.body); // отправляем body на проверку наличия постов
+    const counter = target.parentElement.querySelector('.arrow-counter');
+    
+    if(counter.getAttribute('rated') == new_vote) {
+      target.removeAttribute('selected');
+      counter.innerText = counter.innerText - counter.getAttribute('rated');
+      counter.setAttribute('rated', 0);
+    } else {
+      // Если до клика одна кнопка была активна, то new_vote != 0
+      if(new_vote) {
+        target.parentElement.querySelector(
+          new_vote == 1 ? '.arrow-down' : '.arrow-up'
+        ).removeAttribute('selected');
+      }
+      
+      counter.innerText = counter.innerText - counter.getAttribute('rated') + new_vote;
+      target.setAttribute('selected', true);
+      counter.setAttribute('rated', new_vote);
+    }
+  }
 
-        observer.observe(document.body, { // запускаем обработчик мутаций
-            childList: true,
-            subtree: true
-        });
+  window.addEventListener('load', () => {
+    insertStyles();
+    searchPosts(document.body);
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if(mutation.target.nodeType == 1) {
+          searchPosts(mutation.target);
+        }
+      });
     });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
 }
 
-var script = document.createElement('script');
-script.appendChild(document.createTextNode('(' + ExpertButtons + ')();'));
-(document.body || document.head || document.documentElement).appendChild(script);
+const script = document.createElement('script');
+const code = document.createTextNode(`(${ExpertButtons})();`);
+
+script.appendChild(code);
+document.head.appendChild(script);
