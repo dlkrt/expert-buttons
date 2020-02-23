@@ -155,7 +155,7 @@ function ExpertButtons() {
   }
 
   async function makeVote({ target }) {
-    const [owner_id, post_id] = target.getAttribute('data-post');
+    const [owner_id, post_id] = target.getAttribute('data-post').split('_');
     let new_vote = 0;
     
     if(target.classList.contains('arrow-up')) new_vote = 1;
