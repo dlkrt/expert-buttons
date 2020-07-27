@@ -1,7 +1,8 @@
 # Кнопки экспертов
+![Пример отображения кнопок](https://i.imgur.com/xR8CNod.png)
 ## Как установить?
 1. Установить tampermonkey (только Chrome)
-2. Перейти по ссылке https://gist.github.com/dlkrt/2f7e11e6bd453a1fceae6480e5ac415f/raw/ce7a6c75d8e266d13dffce5e07683acf460475b6/ExpertButtons.user.js
+2. Перейти по ссылке https://gist.github.com/dlkrt/2f7e11e6bd453a1fceae6480e5ac415f/raw/01f266f241fa720ec8434ff02b4d2c46b5449672/ExpertButtons.user.js
 3. Установить
 4. Вставить в строку #13 свой токен от ОФИЦИАЛЬНОГО приложения ВК Android
 5. Нажать "Файл" -> "Сохранить"

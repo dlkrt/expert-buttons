@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ExpertsButtons
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @license      MIT
 // @author       dlkrt, danyadev
 // @match        https://vk.com/*
@@ -31,7 +31,7 @@ function ExpertButtons() {
                 if(req.readyState !== 4) return;
 
                 if(req.status === 200) {
-                    resolve(req.response.response);
+                    resolve(req.response);
                 }
             }
         });
@@ -43,7 +43,7 @@ function ExpertButtons() {
         style.innerHTML = `
       .arrow-container { /* для дива со стрелочками и счетчиком */
         display: flex;
-        flex: 0.3;
+        flex: 0.2;
         justify-content: space-between;
         align-items: center;
         margin-left: auto;
@@ -61,6 +61,7 @@ function ExpertButtons() {
         line-height: 14px;
         color: #909399;
         font-weight: bold;
+        padding: 10px;
       }
 
       .arrow::before {
@@ -112,7 +113,7 @@ function ExpertButtons() {
     }
 
     async function checkPost(post) {
-        const { items: [postInfo] } = await vkapi('wall.getById', {
+        const { response: { items: [postInfo] } } = await vkapi('wall.getById', {
             posts: post.dataset.postId,
             extended: 1
         });
@@ -140,7 +141,7 @@ function ExpertButtons() {
         const counter = document.createElement('div');
         counter.classList.add('arrow-counter');
         counter.setAttribute('rated', rating.rated);
-        counter.innerText = rating.value;
+        counter.innerText = rating.value || '';
 
         if(rating.rated == 1) arrowUp.setAttribute('selected', true);
         if(rating.rated == -1) arrowDown.setAttribute('selected', true);
@@ -163,25 +164,29 @@ function ExpertButtons() {
 
         const counter = target.parentElement.querySelector('.arrow-counter');
 
-        await vkapi('newsfeed.setPostVote', {
+        let response = await vkapi('newsfeed.setPostVote', {
             owner_id,
             post_id,
             new_vote: (counter.getAttribute('rated') == new_vote) ? 0 : new_vote
         });
+        if (!!response.error) {
+            alert(response.error.error_code === 4000 ? 'Изменить голос уже нельзя' : 'Произошла неизвестная ошибка, голос не засчитан: '+JSON.stringify(response));
+            return;
+        }
 
         if(counter.getAttribute('rated') == new_vote) {
             target.removeAttribute('selected');
-            counter.innerText = counter.innerText - counter.getAttribute('rated');
+            counter.innerText = counter.innerText && (counter.innerText - counter.getAttribute('rated'));
             counter.setAttribute('rated', 0);
         } else {
             // Если до клика одна кнопка была активна, то new_vote != 0
             if(new_vote) {
                 target.parentElement.querySelector(
-                    new_vote == 1 ? '.arrow-down' : '.arrow-up'
+                  new_vote == 1 ? '.arrow-down' : '.arrow-up'
                 ).removeAttribute('selected');
             }
 
-            counter.innerText = counter.innerText - counter.getAttribute('rated') + new_vote;
+            counter.innerText = counter.innerText && (counter.innerText - counter.getAttribute('rated') + new_vote);
             target.setAttribute('selected', true);
             counter.setAttribute('rated', new_vote);
         }
