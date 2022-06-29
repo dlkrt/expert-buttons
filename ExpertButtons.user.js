@@ -10,7 +10,7 @@
 
 function ExpertButtons() {
     // Сюда вставьте токен из приложения VK для Android
-    const access_token = 'СЮДА';
+    const access_token = 'vk1.a.TEyVTqJIOE9mrfdWL85BEgZpyB-ndw2lpUIQWx2X3ZvYTIC5F3GCm7IzO8DVo_kf6NAJtLPMeqHLkj_G2qwkpU0lgSnL5Qh6qXXeLFmvbsrxSbQzV5J_nQwXKTrPHqKsYyOxHhqym3IsujYdzQFFI7GYW4pJIcIA2vIFrfeVH7mGcyrUOCK1cuYUxIKv9K4h';
 
     function vkapi(method, params = {}) {
         return new Promise((resolve, reject) => {
